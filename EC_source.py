@@ -15,15 +15,15 @@ epsilon0 = 8.854 * 10**(-12) #F.m^{-1}
 
 # Plasma inputs
 Ne0 = 1.0 * 10**(19)                  #m^{-3}
-Te0 = 2.0 * 10**3 * 1.602 * 10**(-19) #J Boltzmann constant included
+Te0 = 1.0 * 10**3 * 1.602 * 10**(-19) #J Boltzmann constant included
 B0 = 1.4                              #T
 R0 = 1.0                              #m
 a0 = 0.25                             #m
 
 # Beam inputs
 harmonic = 2
-theta_in = np.pi/2    
-omega_b = 7.6 * 10**10 * 2 * np.pi    #Hz
+theta_in = np.pi/2
+omega_b = 7.8 * 10**10 * 2 * np.pi    #Hz
 W0 = 0.02                             #m
 Power_in = 1                          #W
 
@@ -186,7 +186,7 @@ for iR in range(Nr-2,-1,-1):
                               vT_on_c_loc * lorentz / Omega_ce_loc
                         Theta2_n = compute_Theta2_n(rho, theta0_loc, N0_loc, P_loc, Omega_ce_loc, \
                                                     omega_b, Vpar[ivpar], Vperp[ivperp])
-                        Dn[iR, ivpar,ivperp] = np.sqrt(np.pi) * charge**2 * N0_loc / \
+                        Dn[iR, ivpar, ivperp] = np.sqrt(np.pi) * charge**2 * N0_loc / \
                                                (2 * mass**2 * omega_b * sigma_loc * \
                                                 abs(Vpar[ivpar]) * vT_on_c_loc) * Theta2_n * \
                                                np.exp(-((theta_res - theta0_loc)/sigma_loc)**2)
@@ -196,6 +196,8 @@ for iR in range(Nr-2,-1,-1):
                 
         # Normalisation of the Power absorbed
         Power_absorbed *= Ne_loc * mass * dVpar * dVperp * dR * R_loc * np.sqrt(2 * np.pi)
+        # Normalisation of the resonant diffusion coefficient
+        Dn[iR, :, :] = Dn[iR, :, :] / (Omega_ce_loc * Te_loc / mass) 
 
     # Fill the power vector
     vec_Power[iR] = vec_Power[iR+1] - Power_absorbed
