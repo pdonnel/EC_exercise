@@ -1,13 +1,10 @@
  #-*- coding: utf-8 -*-
 """
-Created on 24/01/2022
-
 @author: Peter Donnel
 """
 
 # Import useful libraries
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.special import jn
 
 #Physical constants
@@ -39,8 +36,15 @@ Nr = 100
 Vpar = np.linspace(-vmax,vmax,2*Nv)
 Vperp = np.linspace(0.,vmax,Nv)
 vec_R = np.linspace(R0-a0,R0+a0,Nr)
-vec_Ne = Ne0 * np.ones(Nr)
-vec_Te = Te0 * np.ones(Nr)
+
+# density and temperature profiles (assume a parabolic profiles)
+vec_Ne = np.zeros(Nr)
+vec_Te = np.zeros(Nr)
+for iR in range(Nr):
+    R_loc = vec_R[iR]
+    vec_Ne[iR] = Ne0 * (1 - 0.9 * ((R_loc - R0) / a0)**2)
+    vec_Te[iR] = Te0 * (1 - 0.9 * ((R_loc - R0) / a0)**2)
+
 
 # Usefull quantities for integration
 dR = vec_R[2] - vec_R[1]
@@ -166,7 +170,6 @@ for iR in range(Nr-2,0,-1):
         E2_loc = compute_E2(Power_loc, R_loc, theta0_loc, N0_loc, omega_p_loc, \
                             Omega_ce_loc, omega_b)
 
-
         # Compute the resonant diffusion coefficient
         for ivpar in range(2*Nv):  
             for ivperp in range(Nv):
@@ -194,25 +197,18 @@ for iR in range(Nr-2,0,-1):
         # Normalisation of the Power absorbed
         Power_absorbed *= Ne_loc * mass * dVpar * dVperp * dR * R_loc * np.sqrt(2 * np.pi)
 
-
-    # Save the quantities
+    # Fill the power vector
     vec_Power[iR] = vec_Power[iR+1] - Power_absorbed
-    print(Power_absorbed)
+    print("Power absorbed", Power_absorbed)
 
-print(vec_Power)
 
-# Compute the position of maximum absorption
+# Save arrays in prevision of their exploitation
+np.save('vec_Ne.npy', vec_Ne)
+np.save('vec_Te.npy', vec_Te)
+np.save('Vpar.npy', Vpar)
+np.save('Vperp.npy', Vperp)
+np.save('vec_Power.npy', vec_Power)
+np.save('Dn.npy', Dn)
 
-#Plot
-#fig0 = plt.figure(0,figsize=(12, 6))
-#ax0 = fig0.add_subplot(111)
-#plt.pcolor(Vpar, Vperp, np.transpose(Dn[Nr/2,:,:]) / (Omega_ce * Te / mass))
-#ax0.set_xlabel("$v_{\parallel}$", fontsize = 20)
-#ax0.set_ylabel("$v_{\perp}$", fontsize = 20)
-#ax0.set_title("$\\frac{D_{n}}{v_{Te}^2 \Omega_{ce}}$", fontsize = 20) 
-#ax0.set_aspect('equal','box')
-#plt.colorbar()
-#
-#plt.show()
 
 
