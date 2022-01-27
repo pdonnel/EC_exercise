@@ -15,7 +15,7 @@ epsilon0 = 8.854 * 10**(-12) #F.m^{-1}
 
 # Plasma inputs
 Ne0 = 1.0 * 10**(19)                  #m^{-3}
-Te0 = 1.0 * 10**4 * 1.602 * 10**(-19) #J Boltzmann constant included
+Te0 = 2.0 * 10**3 * 1.602 * 10**(-19) #J Boltzmann constant included
 B0 = 1.4                              #T
 R0 = 1.0                              #m
 a0 = 0.25                             #m
@@ -30,7 +30,7 @@ Power_in = 1                          #W
 # Numerical imput data
 vmax = 4
 Nv = 200
-Nr = 100
+Nr = 200
 
 # Vectors
 Vpar = np.linspace(-vmax,vmax,2*Nv)
@@ -150,7 +150,7 @@ vec_Power = np.zeros(Nr)
 vec_Power[Nr-1] = Power_in
 
 Dn = np.zeros((Nr,2*Nv,Nv))
-for iR in range(Nr-2,0,-1):
+for iR in range(Nr-2,-1,-1):
     Power_absorbed = 0.
     R_loc = vec_R[iR] 
     if R_loc < max(R_res_max,R_eff_max) and R_loc > R_eff_min:
@@ -203,6 +203,7 @@ for iR in range(Nr-2,0,-1):
 
 
 # Save arrays in prevision of their exploitation
+np.save('vec_R.npy', vec_R)
 np.save('vec_Ne.npy', vec_Ne)
 np.save('vec_Te.npy', vec_Te)
 np.save('Vpar.npy', Vpar)
