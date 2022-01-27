@@ -17,32 +17,35 @@ light_speed = 299792458      #m/s
 epsilon0 = 8.854 * 10**(-12) #F.m^{-1}
 
 # Plasma inputs
-Ne = 1.0 * 10**(19)                  #m^{-3}
-Te = 1.0 * 10**4 * 1.602 * 10**(-19) #J Boltzmann constant included
-B = 1.4                              #T
-Radius_loc = 1.0                          #m
+Ne0 = 1.0 * 10**(19)                  #m^{-3}
+Te0 = 1.0 * 10**4 * 1.602 * 10**(-19) #J Boltzmann constant included
+B0 = 1.4                              #T
+R0 = 1.0                              #m
+a0 = 0.25                             #m
 
 # Beam inputs
 harmonic = 2
-omega_b = 7.6 * 10**10 * 2 * np.pi  #Hz
-theta0 = np.pi/2    
-W0 = 0.02 #m
-Power = 1                        #W
+theta_in = np.pi/2    
+omega_b = 7.6 * 10**10 * 2 * np.pi    #Hz
+W0 = 0.02                             #m
+Power_in = 1                          #W
 
 # Numerical imput data
-vmax = 3
-Nv = 40
+vmax = 4
+Nv = 200
+Nr = 100
 
 # Vectors
 Vpar = np.linspace(-vmax,vmax,2*Nv)
 Vperp = np.linspace(0.,vmax,Nv)
+vec_R = np.linspace(R0-a0,R0+a0,Nr)
+vec_Ne = Ne0 * np.ones(Nr)
+vec_Te = Te0 * np.ones(Nr)
 
-
-# Compute P of Stix
-def compute_P(omega_b_loc, N_loc):
-    omega_p_loc = np.sqrt(N_loc * charge**2 / (epsilon0 * mass))
-    return 1 - (omega_p_loc/omega_b_loc)**2
-
+# Usefull quantities for integration
+dR = vec_R[2] - vec_R[1]
+dVperp = Vperp[2] -Vperp[1]
+dVpar =  Vpar[2] -Vpar[1]
 
 # Compute refractive index
 def compute_N(theta_loc, P_loc, omega_ce_loc, omega_b_loc):
@@ -61,19 +64,23 @@ def compute_N(theta_loc, P_loc, omega_ce_loc, omega_b_loc):
 
 # Function to compute the resonant angle
 def compute_theta_res(lambda_loc, P_loc, Omegace_on_omegab_loc):
-    lambda2 = lambda_loc**2
-    tmp1 = P_loc**2 * (2*lambda2 - P_loc) + \
-           Omegace_on_omegab_loc**2 * (P_loc * (1 - lambda2)**2 - lambda2**2)
-    tmp2 = Omegace_on_omegab_loc * (1 - P_loc) * lambda2 * \
-           np.sqrt((Omegace_on_omegab_loc * (1 - lambda2))**2 + 4 * P_loc * lambda2)
-    tmp3 =  P_loc * (P_loc**2 - Omegace_on_omegab_loc**2) + \
-            lambda2 * Omegace_on_omegab_loc**2 * (P_loc - 1)
-    x_lambda = (tmp1 + tmp2) / tmp3
-
-    if ( lambda_loc>0 ):
-        return 0.5*np.arccos(x_lambda)
+    # Compute analytically the result for really low lambda_loc
+    if ( abs(lambda_loc) < 10**(-15)):
+        return 0.5*np.pi
     else:
-        return np.pi - 0.5*np.arccos(x_lambda)
+        lambda2 = lambda_loc**2
+        tmp1 = P_loc**2 * (2*lambda2 - P_loc) + \
+               Omegace_on_omegab_loc**2 * (P_loc * (1 - lambda2)**2 - lambda2**2)
+        tmp2 = Omegace_on_omegab_loc * (1 - P_loc) * lambda2 * \
+               np.sqrt((Omegace_on_omegab_loc * (1 - lambda2))**2 + 4 * P_loc * lambda2)
+        tmp3 =  P_loc * (P_loc**2 - Omegace_on_omegab_loc**2) + \
+                lambda2 * Omegace_on_omegab_loc**2 * (P_loc - 1)
+        x_lambda = (tmp1 + tmp2) / tmp3
+        
+        if ( lambda_loc>0 ):
+            return 0.5*np.arccos(x_lambda)
+        else:
+            return np.pi - 0.5*np.arccos(x_lambda)
 
 
 # Function to compute Theta_n
@@ -92,7 +99,8 @@ def compute_Theta2_n(rho, theta, Ntheta, P_loc, omega_ce_loc, omega_b_loc, vpar,
         tmp3 = - 2 * Ntheta**2 * np.cos(theta) * np.sin(theta) * vpar * jn(harmonic,rho) / \
                (P_loc - (Ntheta*np.sin(theta))**2) / vperp
         tmp4 = 4 * (1 + (T_loc / (S_loc - Ntheta**2))**2 + \
-                    (Ntheta**2 * np.cos(theta) * np.sin(theta) / (P_loc - (Ntheta*np.sin(theta))**2))**2)
+                    (Ntheta**2 * np.cos(theta) * np.sin(theta) / \
+                     (P_loc - (Ntheta*np.sin(theta))**2))**2)
         return (tmp1 + tmp2 + tmp3)**2 / tmp4
 
 # Compute the electric field given the power of the beam
@@ -111,44 +119,100 @@ def compute_E2(Power_loc, R_loc, theta_loc, N_theta_loc, omega_p_loc, Omega_ce_l
          (g1 - Omega_ce_loc*omega2_p*g2/(2*omega_b_loc*np.sqrt(f2)) - N_theta_loc**2 * g3)
     return Power_loc / (np.pi**1.5 * R_loc * W0 * epsilon0 * np.sin(theta_loc)**3 * abs(vg))
 
-# Compute quantities depending only on space
-Omega_ce = charge * B / mass
-omega_p = np.sqrt(Ne * charge**2 / (epsilon0 * mass))
-vT_on_c = np.sqrt(Te/mass) / light_speed
-P_loc = 1 - (omega_p/omega_b)**2
-N0 = compute_N(theta0, P_loc, Omega_ce, omega_b)
-sigma = light_speed / (omega_b * N0 * W0)
-Nlim = compute_N(0., P_loc, Omega_ce, omega_b)
-E2 = compute_E2(Power, Radius_loc, theta0, N0, omega_p, Omega_ce, omega_b) 
+# Compute quantities at the entry in the plasma (=outer midplane)
+Ne_in = vec_Ne[Nr-1]
+Te_in = vec_Te[Nr-1]
+R_in = vec_R[Nr-1]
+B_in = B0 * R0 / R_in
+Omega_ce_in = charge * B_in / mass
+omega_p_in = np.sqrt(Ne_in * charge**2 / (epsilon0 * mass))
+P_in = 1 - (omega_p_in/omega_b)**2
+N_in = compute_N(theta_in, P_in, Omega_ce_in, omega_p_in)
 
-# Compute the resonant diffusion coefficient
-Dn = np.zeros((len(Vpar),len(Vperp)))
 
-for i in range(len(Vpar)):  
-    for j in range(len(Vperp)):
-        lorentz = 1 / np.sqrt(1 - (Vpar[i]**2 + Vperp[j]**2) * vT_on_c**2)
-        lambda_phys = (1 - harmonic * Omega_ce/omega_b / lorentz) / (Vpar[i] * vT_on_c)
-        if (abs(lambda_phys)>Nlim) :
-            Dn[i,j] = 0
-        else:
-            theta_res = compute_theta_res(lambda_phys,P_loc,Omega_ce/omega_b)
-            Nres = compute_N(theta_res, P_loc, Omega_ce, omega_b)
-            rho = np.sin(theta0) * N0 * omega_b * Vperp[j] * vT_on_c * lorentz / Omega_ce
-            Theta2_n = compute_Theta2_n(rho, theta0, N0, P_loc, Omega_ce, omega_b, Vpar[i], Vperp[j])
-            Dn[i,j] = np.sqrt(np.pi) * charge**2 * N0 / \
-                      (2 * mass**2 * omega_b * sigma * abs(Vpar[i]) * vT_on_c) * \
-                      np.exp(-((theta_res - theta0)/sigma)**2) * Theta2_n
+# Compute quantities on the magnetic axis.
+Omega_ce0 = charge * B0 / mass
+# Compute the minimum / maximum absorption major radii
+vT_on_c_max = np.sqrt(max(vec_Te)/mass) / light_speed
+Npar_in = N_in*np.cos(theta_in)
+R_res_max = np.sqrt((Npar_in*R_in)**2 + (harmonic * Omega_ce0 * R0 / omega_b)**2)
+R_eff_min = - vmax * vT_on_c_max * abs(Npar_in) * R_in + \
+            harmonic * Omega_ce0 * R0 * np.sqrt(1 - (vmax*vT_on_c_max)**2) / omega_b
+R_eff_max = + vmax * vT_on_c_max * abs(Npar_in) * R_in + \
+            harmonic * Omega_ce0 * R0 * np.sqrt(1 - (vmax*vT_on_c_max)**2) / omega_b
+print(R_res_max,R_eff_max,R_eff_min)
+# Allocation of the empty arrays
+vec_Power = np.zeros(Nr)
+vec_Power[Nr-1] = Power_in
+
+Dn = np.zeros((Nr,2*Nv,Nv))
+for iR in range(Nr-2,0,-1):
+    Power_absorbed = 0.
+    R_loc = vec_R[iR] 
+    if R_loc < max(R_res_max,R_eff_max) and R_loc > R_eff_min:
+        Ne_loc = vec_Ne[iR]
+        Te_loc = vec_Te[iR]
+        B_loc = B0 * R0 / R_loc
+        Omega_ce_loc = charge * B_loc / mass
+        omega_p_loc = np.sqrt(Ne_loc * charge**2 / (epsilon0 * mass))
+        P_loc = 1 - (omega_p_loc/omega_b)**2
+        vT_on_c_loc = np.sqrt(Te_loc/mass) / light_speed
+        arg_theta0 = R_in / R_loc  * N_in * np.cos(theta_in) 
+        theta0_loc = compute_theta_res(arg_theta0,P_loc, Omega_ce_loc/omega_b)
+        N0_loc = compute_N(theta0_loc, P_loc, Omega_ce_loc, omega_b)
+        sigma_loc = light_speed / (omega_b * N0_loc * W0)
+        Nlim_loc = compute_N(0., P_loc, Omega_ce_loc, omega_b)
+        Power_loc = vec_Power[iR+1]
+        E2_loc = compute_E2(Power_loc, R_loc, theta0_loc, N0_loc, omega_p_loc, \
+                            Omega_ce_loc, omega_b)
+
+
+        # Compute the resonant diffusion coefficient
+        for ivpar in range(2*Nv):  
+            for ivperp in range(Nv):
+                lorentz = 1 / np.sqrt(1 - (Vpar[ivpar]**2 + Vperp[ivperp]**2) * vT_on_c_loc**2)
+                lambda_phys = (1 - harmonic * Omega_ce_loc/omega_b / lorentz) / \
+                              (Vpar[ivpar] * vT_on_c_loc)
+                if (abs(lambda_phys)>Nlim_loc) :
+                    Dn[iR, ivpar,ivperp] = 0
+                else:
+                    theta_res = compute_theta_res(lambda_phys,P_loc,Omega_ce_loc/omega_b)
+                    if abs(theta_res - theta0_loc) < 5*sigma_loc:
+                        Nres = compute_N(theta_res, P_loc, Omega_ce_loc, omega_b)
+                        rho = np.sin(theta0_loc) * N0_loc * omega_b * Vperp[ivperp] * \
+                              vT_on_c_loc * lorentz / Omega_ce_loc
+                        Theta2_n = compute_Theta2_n(rho, theta0_loc, N0_loc, P_loc, Omega_ce_loc, \
+                                                    omega_b, Vpar[ivpar], Vperp[ivperp])
+                        Dn[iR, ivpar,ivperp] = np.sqrt(np.pi) * charge**2 * N0_loc / \
+                                               (2 * mass**2 * omega_b * sigma_loc * \
+                                                abs(Vpar[ivpar]) * vT_on_c_loc) * Theta2_n * \
+                                               np.exp(-((theta_res - theta0_loc)/sigma_loc)**2)
+
+                        Power_absorbed += Vperp[ivperp]**3 * Dn[iR, ivpar,ivperp] * \
+                                          np.exp(- (Vpar[ivpar]**2 + Vperp[ivperp]**2)/2)
+                
+        # Normalisation of the Power absorbed
+        Power_absorbed *= Ne_loc * mass * dVpar * dVperp * dR * R_loc * np.sqrt(2 * np.pi)
+
+
+    # Save the quantities
+    vec_Power[iR] = vec_Power[iR+1] - Power_absorbed
+    print(Power_absorbed)
+
+print(vec_Power)
+
+# Compute the position of maximum absorption
 
 #Plot
-fig0 = plt.figure(0,figsize=(12, 6))
-ax0 = fig0.add_subplot(111)
-plt.pcolor(Vpar, Vperp, np.transpose(Dn) / (Omega_ce * Te / mass))
-ax0.set_xlabel("$v_{\parallel}$", fontsize = 20)
-ax0.set_ylabel("$v_{\perp}$", fontsize = 20)
-ax0.set_title("$\\frac{D_{n}}{v_{Te}^2 \Omega_{ce}}$", fontsize = 20) 
-ax0.set_aspect('equal','box')
-plt.colorbar()
-
-plt.show()
+#fig0 = plt.figure(0,figsize=(12, 6))
+#ax0 = fig0.add_subplot(111)
+#plt.pcolor(Vpar, Vperp, np.transpose(Dn[Nr/2,:,:]) / (Omega_ce * Te / mass))
+#ax0.set_xlabel("$v_{\parallel}$", fontsize = 20)
+#ax0.set_ylabel("$v_{\perp}$", fontsize = 20)
+#ax0.set_title("$\\frac{D_{n}}{v_{Te}^2 \Omega_{ce}}$", fontsize = 20) 
+#ax0.set_aspect('equal','box')
+#plt.colorbar()
+#
+#plt.show()
 
 
