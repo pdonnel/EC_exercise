@@ -6,7 +6,6 @@
 # Import useful libraries
 import numpy as np
 import matplotlib.pyplot as plt
-from PIL import Image
 
 # Load arrays for their exploitation
 vec_R = np.load('vec_R.npy')
@@ -29,8 +28,6 @@ ax03 = fig0.add_subplot(313)
 ax03.plot(vec_R, (vec_Power[-1] - vec_Power)/vec_Power[-1])
 ax03.set_xlabel("$R - R_0$", fontsize = 20)
 ax03.set_ylabel("$P_{abs}/P_{in}$", fontsize = 20)
-
-plt.savefig("Radial_profiles.png")
 fig0.show()
 
 
@@ -46,7 +43,10 @@ ax1.set_ylabel("$v_{\perp}$", fontsize = 20)
 ax1.set_title("$D_{n}/(v_{Te}^2 \Omega_{ce})$", fontsize = 20) 
 ax1.set_aspect('equal','box')
 plt.colorbar()
-plt.savefig("Dn_max.png") 
+
 fig1.show()
 
-
+saving = input("Do you want to save the figures? [y/n] (default = n)")
+if saving == ("y"):
+    fig0.savefig("Radial_profiles.png")
+    fig1.savefig("Dn_max.png")
