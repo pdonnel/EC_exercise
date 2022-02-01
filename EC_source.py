@@ -27,7 +27,7 @@ a0 = 0.25                             #m
 
 # Beam inputs
 harmonic = 2
-theta_in = np.pi/2
+theta_in = np.pi/2 
 omega_b = 7.8 * 10**10 * 2 * np.pi    #Hz
 W0 = 0.02                             #m
 Power_in = 1                          #W
@@ -35,7 +35,7 @@ Power_in = 1                          #W
 
 # Numerical imput data
 vmax = 4
-Nv = 200
+Nv = 300
 Nr = 400
 
 
@@ -330,15 +330,15 @@ for iR in range(Nr-2,-1,-1):
                         Theta2_n = compute_Theta2_n(rho, theta0_loc, N0_loc, P_loc, Omega_ce_loc, \
                                                     omega_b, Vpar[ivpar], Vperp[ivperp])
                         Dn[iR, ivpar, ivperp] = np.sqrt(np.pi) * charge**2 * N0_loc / \
-                                               (2 * mass**2 * omega_b * sigma_loc * \
-                                                abs(Vpar[ivpar]) * vT_on_c_loc) * Theta2_n * \
-                                               np.exp(-((theta_res - theta0_loc)/sigma_loc)**2)
+                                                (2 * mass**2 * omega_b * sigma_loc * \
+                                                 abs(Vpar[ivpar]) * vT_on_c_loc) * Theta2_n * E2_loc * \
+                                                np.exp(-((theta_res - theta0_loc)/sigma_loc)**2)
 
                         Power_absorbed += Vperp[ivperp]**3 * Dn[iR, ivpar,ivperp] * \
                                           np.exp(- (Vpar[ivpar]**2 + Vperp[ivperp]**2)/2)
                 
         # Normalisation of the Power absorbed
-        Power_absorbed *= Ne_loc * mass * dVpar * dVperp * dR * R_loc * np.sqrt(2 * np.pi)
+        Power_absorbed *= Ne_loc * mass * dVpar * dVperp * dR * R_loc * np.sqrt(2) * np.pi * W0
         # Normalisation of the resonant diffusion coefficient
         Dn[iR, :, :] = Dn[iR, :, :] / (Omega_ce_loc * Te_loc / mass) 
 

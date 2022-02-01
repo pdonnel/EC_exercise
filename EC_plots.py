@@ -27,10 +27,11 @@ ax02 = fig0.add_subplot(312)
 ax02.plot(vec_R, vec_Te / (1.602 * 10**(-19)))
 ax02.set_ylabel("$T_e$ [eV]", fontsize = 20)
 ax03 = fig0.add_subplot(313)
-ax03.plot(vec_R, (vec_Power[-1] - vec_Power)/vec_Power[-1])
-ax03.plot(vec_R, (vec_Albajar[-1] - vec_Albajar)/vec_Albajar[-1])
+ax03.plot(vec_R, (vec_Power[-1] - vec_Power)/vec_Power[-1], '-b')
+ax03.plot(vec_R, (vec_Albajar[-1] - vec_Albajar)/vec_Albajar[-1], '--r')
 ax03.set_xlabel("$R - R_0$", fontsize = 20)
 ax03.set_ylabel("$P_{abs}/P_{in}$", fontsize = 20)
+ax03.legend(["simulation","theory"])
 fig0.show()
 
 
@@ -48,7 +49,12 @@ plt.colorbar()
 
 fig1.show()
 
+print('P_{abs,tot}^{mod} / P_{abs,tot}^{ana}', (vec_Power[-1] - vec_Power[1])/(vec_Albajar[-1]-vec_Albajar[1]))
+
 saving = input("Do you want to save the figures? [y/n] (default = n)")
 if saving == ("y"):
     fig0.savefig("Radial_profiles.png")
     fig1.savefig("Dn_max.png")
+
+
+
