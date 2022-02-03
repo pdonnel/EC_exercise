@@ -10,40 +10,43 @@ from scipy.special import jn
 from scipy.special import spherical_jn
 
 
-#Physical constants
-charge = 1.602 * 10**(-19)   #C
-mass = 9.109 * 10**(-31)     #kg
-light_speed = 299792458      #m/s
-epsilon0 = 8.854 * 10**(-12) #F.m^{-1}
+# Physical constants
+charge = 1.602 * 10**(-19)   # elementary charge [C]
+mass = 9.109 * 10**(-31)     # electron mass [kg]
+light_speed = 299792458      # speed of light [m/s]
+epsilon0 = 8.854 * 10**(-12) # vaccum permittivity [F/m]
 
 
 # Plasma inputs
-Ne0 = 1.0 * 10**(19)                  #m^{-3}
-Te0 = 2.0 * 10**3 * 1.602 * 10**(-19) #J Boltzmann constant included
-B0 = 1.4                              #T
-R0 = 1.0                              #m
-a0 = 0.25                             #m
+Ne0 = 1.0 * 10**(19)                  # maximum electron density [m^{-3}]
+Te0 = 2.0 * 10**3 * 1.602 * 10**(-19) # maximum of electron temperature [J] (Warning: kB included)
+B0 = 1.4                              # magnetic field on axis [T]
+R0 = 1.0                              # major radius [m]
+a0 = 0.25                             # minor radius [m]
 
 
 # Beam inputs
-harmonic = 2
-theta_in = np.pi/2 
-omega_b = 7.8 * 10**10 * 2 * np.pi    #Hz
-W0 = 0.02                             #m
-Power_in = 1                          #W
+harmonic = 2                          # harmonic of the cyclotron frequency
+theta_in = np.pi/2                    # Toroidal angle of injection
+omega_b = 7.8 * 10**10 * 2 * np.pi    # beam pulsation [Hz]
+W0 = 0.02                             # beam width [m]
+Power_in = 1                          # power input of the beam [W]
 
 
 # Numerical imput data
-vmax = 4
-Nv = 300
-Nr = 400
+vmax = 4   # maximal velocity (normalized to the local thermal velocity)
+Nv = 300   # number of grid points in velocity space (Nv for vperp, 2*Nv for vpar)
+Nr = 400   # number of grid points for the major radius direction
 
 
-# Vectors
+# Generation of the grid
 Vpar = np.linspace(-vmax,vmax,2*Nv)
 Vperp = np.linspace(0.,vmax,Nv)
 vec_R = np.linspace(R0-a0,R0+a0,Nr)
 
+dVpar =  Vpar[2] -Vpar[1]
+dVperp = Vperp[2] -Vperp[1]
+dR = vec_R[2] - vec_R[1]
 
 # density and temperature profiles (assume a parabolic profiles)
 vec_Ne = np.zeros(Nr)
@@ -54,13 +57,7 @@ for iR in range(Nr):
     vec_Te[iR] = Te0 * (1 - 0.9 * ((R_loc - R0) / a0)**2)
 
 
-# Usefull quantities for integration
-dR = vec_R[2] - vec_R[1]
-dVperp = Vperp[2] -Vperp[1]
-dVpar =  Vpar[2] -Vpar[1]
-
-
-# Compute refractive index
+# Compute the refractive index
 def compute_N(theta_loc, P_loc, omega_ce_loc, omega_b_loc):
     normalized_freq = omega_ce_loc / omega_b_loc
     R_loc = (P_loc - normalized_freq) / (1 - normalized_freq)
@@ -75,7 +72,7 @@ def compute_N(theta_loc, P_loc, omega_ce_loc, omega_b_loc):
     return np.sqrt(Nx2)
     
 
-# Function to compute the resonant angle
+# Compute the resonant angle
 def compute_theta_res(lambda_loc, P_loc, Omegace_on_omegab_loc):
     # Compute analytically the result for really low lambda_loc
     if ( abs(lambda_loc) < 10**(-15)):
@@ -96,7 +93,7 @@ def compute_theta_res(lambda_loc, P_loc, Omegace_on_omegab_loc):
             return np.pi - 0.5*np.arccos(x_lambda)
 
 
-# Function to compute Theta_n
+# Compute |Theta_n|^2
 def compute_Theta2_n(rho, theta, Ntheta, P_loc, omega_ce_loc, omega_b_loc, vpar, vperp):
     normalized_freq = omega_ce_loc / omega_b_loc
     R_loc = (P_loc - normalized_freq) / (1 - normalized_freq)
@@ -240,7 +237,7 @@ def Compute_A_B(omega_b, omega_p, Omega_ce, N0, theta, n_beam):
     BigA = (np.absolute(Axz)**2 + ey**2) * fx + (Axz*complex(0,ey)).real * xn * df_dx / n_beam - \
            (xn/n_beam)**2 * (n_beam/(n_beam+1)) * ey**2 * (fx - df_dydy) + \
            (xn / (n_beam * np.sqrt(1-Npar**2)))**2 * np.absolute(ez)**2 * df_dydy - \
-           xn * (2*(Axz*ez.conjugate()).real * df_dy+ (complex(0,ey)*ez).real * xn * df_dxdy/ n_beam) / \
+           xn * (2*(Axz*ez.conjugate()).real * df_dy+ (complex(0,ey)*ez).real*xn*df_dxdy/n_beam) / \
            (n_beam * np.sqrt(1-Npar**2))
     BigB = (xn / n_beam)**2 * (2*n_beam + 3) / ((n_beam+1)*(n_beam+2)) * ey**2 * (gx - dg_dydy)
     return BigA, BigB
@@ -275,6 +272,10 @@ vec_Power[Nr-1] = Power_in
 vec_Albajar[Nr-1] = Power_in
 vec_tau = np.zeros(Nr)
 Dn = np.zeros((Nr,2*Nv,Nv))
+
+
+# Computation of the resonant diffusion coefficient and
+# the numerical and theoretical power deposition
 tau_loc = 0.
 for iR in range(Nr-2,-1,-1):
     Power_absorbed = 0.
@@ -302,7 +303,8 @@ for iR in range(Nr-2,-1,-1):
         mu_loc = light_speed**2 * mass / Te_loc
         harmonic0 = omega_b * np.sqrt(1 - Npar_loc**2) / Omega_ce_loc
         if (math.ceil(harmonic0) == harmonic):
-            [Big_A_loc, Big_B_loc] = Compute_A_B(omega_b, omega_p_loc, Omega_ce_loc, N0_loc, theta0_loc, harmonic)
+            [Big_A_loc, Big_B_loc] = Compute_A_B(omega_b, omega_p_loc, Omega_ce_loc, \
+                                                 N0_loc, theta0_loc, harmonic)
             Pn_loc = np.pi*math.factorial(2*harmonic+1) / (2**harmonic*math.factorial(harmonic))**2 * \
                     (harmonic * Omega_ce_loc / (omega_b * Nperp_loc))**2 * (Big_A_loc + Big_B_loc)
             Fn_loc = mu_loc**2.5 * Pn_loc * \
@@ -329,9 +331,9 @@ for iR in range(Nr-2,-1,-1):
                               vT_on_c_loc * lorentz / Omega_ce_loc
                         Theta2_n = compute_Theta2_n(rho, theta0_loc, N0_loc, P_loc, Omega_ce_loc, \
                                                     omega_b, Vpar[ivpar], Vperp[ivperp])
-                        Dn[iR, ivpar, ivperp] = np.sqrt(np.pi) * charge**2 * N0_loc / \
+                        Dn[iR, ivpar, ivperp] = np.sqrt(np.pi) * charge**2 * N0_loc * E2_loc / \
                                                 (2 * mass**2 * omega_b * sigma_loc * \
-                                                 abs(Vpar[ivpar]) * vT_on_c_loc) * Theta2_n * E2_loc * \
+                                                 abs(Vpar[ivpar]) * vT_on_c_loc) * Theta2_n * \
                                                 np.exp(-((theta_res - theta0_loc)/sigma_loc)**2)
 
                         Power_absorbed += Vperp[ivperp]**3 * Dn[iR, ivpar,ivperp] * \
@@ -345,6 +347,8 @@ for iR in range(Nr-2,-1,-1):
     # Fill the power vector
     vec_Power[iR] = vec_Power[iR+1] - Power_absorbed
     vec_Albajar[iR] = Power_in * np.exp(-tau_loc)
+
+    # Display the index that has been computed
     if (Power_absorbed > 0.):
         print("iR", iR)
 
