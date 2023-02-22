@@ -89,7 +89,7 @@ def compute_theta_res(lambda_loc, P_loc, Omegace_on_omegab_loc):
             theta_res = 0.5*np.pi
         else:
             y_lambda = 0.5*np.arccos(x_lambda)
-            if (y_lambda>0):
+            if (lambda_loc>0):
                 theta_res = y_lambda
             else:
                 theta_res = np.pi - y_lambda
