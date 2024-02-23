@@ -10,6 +10,9 @@ from scipy.special import jn
 from scipy.special import spherical_jn
 import sys
 np.set_printoptions(threshold=sys.maxsize)
+import multiprocessing
+from multiprocessing import Pool
+import itertools
 
 # Physical constants
 charge = 1.602 * 10**(-19)   # elementary charge [C]
@@ -28,7 +31,7 @@ a0 = 0.25                             # minor radius [m]
 
 # Beam inputs
 harmonic = 2                          # harmonic of the cyclotron frequency
-theta_in = np.pi/2                    # Toroidal angle of injection
+theta_in = np.pi/2 + 0.1              # Toroidal angle of injection
 omega_b = 7.8 * 10**10 * 2 * np.pi    # beam pulsation [Hz]
 W0 = 0.02                             # beam width [m]
 Power_in = 1                          # power input of the beam [W]
@@ -48,6 +51,7 @@ vec_R = np.linspace(R0-a0,R0+a0,Nr)
 dVpar =  Vpar[2] -Vpar[1]
 dVperp = Vperp[2] -Vperp[1]
 dR = vec_R[2] - vec_R[1]
+
 
 # density and temperature profiles (assume a parabolic profiles)
 vec_Ne = np.zeros(Nr)
@@ -248,7 +252,49 @@ def Compute_A_B(omega_b, omega_p, Omega_ce, N0, theta, n_beam):
     BigB = (xn / n_beam)**2 * (2*n_beam + 3) / ((n_beam+1)*(n_beam+2)) * ey**2 * (gx - dg_dydy)
     return BigA, BigB
 
-def Compute_Dn_and_Pabs(vpar, vperp,vT_on_c,omega_b,Omega_ce,P_loc,theta0_loc,N0_loc,sigma):
+def Compute_Dn_and_Pabs_wrapper(args):
+    
+    ivpar = args[0]
+    ivperp = args[1]
+    iR = args[2]
+    vT_on_c = args[3]
+    omega_b = args[4]
+    Omega_ce = args[5]
+    P_loc = args[6]
+    theta0_loc = args[7]
+    N0_loc = args[8]
+    sigma = args[9]
+    
+    [Dn_loc, Power_loc] = Compute_Dn_and_Pabs(ivpar,ivperp,iR,vT_on_c,omega_b,Omega_ce,P_loc,theta0_loc,N0_loc,sigma)
+
+    return Dn_loc, Power_loc
+
+def Compute_Dn_and_Pabs(ivpar,ivperp,iR,vT_on_c,omega_b,Omega_ce,P_loc,theta0_loc,N0_loc,sigma):
+
+   vpar = Vpar[ivpar]
+   vperp = Vperp[ivperp]
+   energy = vperp**2 + vpar**2
+   lorentz = 1 / np.sqrt(1 - energy * vT_on_c**2)
+   lambda_phys = (1 - harmonic * Omega_ce/omega_b / lorentz) / \
+                 (vpar * vT_on_c)
+   theta_res = compute_theta_res(lambda_phys,P_loc,Omega_ce/omega_b)
+   rho = np.sin(theta0_loc) * N0_loc * omega_b *  np.transpose(lorentz) * vperp * \
+         vT_on_c / Omega_ce
+
+   Theta2_n = compute_Theta2_n(rho, theta0_loc, N0_loc, P_loc, Omega_ce, \
+                               omega_b, vpar, vperp)
+   Dn_loc = np.sqrt(np.pi) * charge**2 * N0_loc * E2_loc * Theta2_n / \
+        (2 * mass**2 * omega_b * sigma * abs(vpar) * vT_on_c) * \
+        np.exp(-((theta_res - theta0_loc)/sigma)**2)
+   Power = vperp**3 * Dn_loc * np.exp(- energy/2)
+
+   
+   return Dn_loc, Power
+
+
+
+
+def Compute_Dn_and_Pabs_vec(vpar,vperp,vT_on_c,omega_b,Omega_ce,P_loc,theta0_loc,N0_loc,sigma):
 
    energy = np.add.outer( vperp**2, vpar**2)
    lorentz = 1 / np.sqrt(1 - energy * vT_on_c**2)
@@ -271,6 +317,11 @@ def Compute_Dn_and_Pabs(vpar, vperp,vT_on_c,omega_b,Omega_ce,P_loc,theta0_loc,N0
 
    return Dn, Power
 
+def test(vpar, vperp):
+
+    energy = vpar**2 + vperp**2
+
+    return energy
 
 # Compute quantities at the entry in the plasma (=outer midplane)
 Ne_in = vec_Ne[Nr-1]
@@ -302,7 +353,6 @@ vec_Albajar[Nr-1] = Power_in
 vec_tau = np.zeros(Nr)
 Dn = np.zeros((Nr,2*Nv,Nv))
 
-
 # Computation of the resonant diffusion coefficient and
 # the numerical and theoretical power deposition
 tau_loc = 0.
@@ -310,6 +360,7 @@ for iR in range(Nr-2,-1,-1):
     Power_absorbed = 0.
     R_loc = vec_R[iR] 
     if R_loc < max(R_res_max,R_eff_max) and R_loc > R_eff_min:
+        print("iR is being calculated", iR)
         Ne_loc = vec_Ne[iR]
         Te_loc = vec_Te[iR]
         B_loc = B0 * R0 / R_loc
@@ -344,24 +395,37 @@ for iR in range(Nr-2,-1,-1):
                         (light_speed * Omega_ce_loc * harmonic0)
             tau_loc += alpha_loc * abs(np.sin(theta0_loc)) * dR
 
-            [Dn_loc, Power] = Compute_Dn_and_Pabs(Vpar,Vperp,vT_on_c_loc,omega_b,Omega_ce_loc,P_loc,theta0_loc,N0_loc,sigma_loc)            
+            # Vectorized version of the code
+            [Dn_loc, Power] = Compute_Dn_and_Pabs_vec(Vpar,Vperp,vT_on_c_loc,omega_b,Omega_ce_loc,P_loc,theta0_loc,N0_loc,sigma_loc)            
+            Power_absorbed = np.sum(Power)
+
+            # Parallelized version of the code
+#            Power_absorbed = 0.0
+
+#            args =[]
+#            for ivpar in range(len(Vpar)):
+#                for ivperp in range(len(Vperp)):
+#                    args.append((ivpar,ivperp,iR,vT_on_c_loc,omega_b,Omega_ce_loc,P_loc,theta0_loc,N0_loc,sigma_loc))
+                    
+ #           # protect the entry point
+  #          if __name__ == '__main__':
+  #              # create as many workers as possible (# of cores on the CPU)
+  #              with Pool(processes=multiprocessing.cpu_count()) as pool:
+  #                  Power_pool = pool.map(Compute_Dn_and_Pabs_wrapper, args)
+                        
+  #                  Power_absorbed = sum(Power_pool)
 
 
             # Normalisation of the resonant diffusion coefficient
             Dn[iR, :, :] = Dn_loc / (Omega_ce_loc * Te_loc / mass) 
 
-            # Sum all the points to compute the total power deposited
-            Power_absorbed = np.sum(Power)
             # Normalisation of the Power absorbed
             Power_absorbed *= Ne_loc * mass * dVpar * dVperp * dR * R_loc * np.sqrt(2) * np.pi * W0
-
+            print(Power_absorbed)
     # Fill the power vector
     vec_Power[iR] = vec_Power[iR+1] - Power_absorbed
     vec_Albajar[iR] = Power_in * np.exp(-tau_loc)
 
-    # Display the index that has been computed
-    if (Power_absorbed > 0.):
-        print("iR", iR)
 
 
 # Save arrays in prevision of their exploitation
