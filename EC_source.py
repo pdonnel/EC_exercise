@@ -264,12 +264,13 @@ def Compute_Dn_and_Pabs_wrapper(args):
     theta0_loc = args[7]
     N0_loc = args[8]
     sigma = args[9]
+    E2_loc = args[10]
     
-    [Dn_loc, Power_loc] = Compute_Dn_and_Pabs(ivpar,ivperp,iR,vT_on_c,omega_b,Omega_ce,P_loc,theta0_loc,N0_loc,sigma)
+    [Dn, Power_loc] = Compute_Dn_and_Pabs(ivpar,ivperp,iR,vT_on_c,omega_b,Omega_ce,P_loc,theta0_loc,N0_loc,sigma,E2_loc)
 
-    return Dn_loc, Power_loc
+    return Dn, Power_loc
 
-def Compute_Dn_and_Pabs(ivpar,ivperp,iR,vT_on_c,omega_b,Omega_ce,P_loc,theta0_loc,N0_loc,sigma):
+def Compute_Dn_and_Pabs(ivpar,ivperp,iR,vT_on_c,omega_b,Omega_ce,P_loc,theta0_loc,N0_loc,sigma,E2_loc):
 
    vpar = Vpar[ivpar]
    vperp = Vperp[ivperp]
@@ -396,25 +397,31 @@ for iR in range(Nr-2,-1,-1):
             tau_loc += alpha_loc * abs(np.sin(theta0_loc)) * dR
 
             # Vectorized version of the code
-            [Dn_loc, Power] = Compute_Dn_and_Pabs_vec(Vpar,Vperp,vT_on_c_loc,omega_b,Omega_ce_loc,P_loc,theta0_loc,N0_loc,sigma_loc)            
-            Power_absorbed = np.sum(Power)
+#            [Dn_loc, Power] = Compute_Dn_and_Pabs_vec(Vpar,Vperp,vT_on_c_loc,omega_b,Omega_ce_loc,P_loc,theta0_loc,N0_loc,sigma_loc)            
+#            Power_absorbed = np.sum(Power)
 
             # Parallelized version of the code
-#            Power_absorbed = 0.0
-
-#            args =[]
-#            for ivpar in range(len(Vpar)):
-#                for ivperp in range(len(Vperp)):
-#                    args.append((ivpar,ivperp,iR,vT_on_c_loc,omega_b,Omega_ce_loc,P_loc,theta0_loc,N0_loc,sigma_loc))
+            Power_absorbed = 0.0
+            args =[]
+            for ivpar in range(len(Vpar)):
+                for ivperp in range(len(Vperp)):
+                    args.append((ivpar,ivperp,iR,vT_on_c_loc,omega_b,Omega_ce_loc,P_loc,theta0_loc,N0_loc,sigma_loc,E2_loc))
                     
- #           # protect the entry point
-  #          if __name__ == '__main__':
-  #              # create as many workers as possible (# of cores on the CPU)
-  #              with Pool(processes=multiprocessing.cpu_count()) as pool:
-  #                  Power_pool = pool.map(Compute_Dn_and_Pabs_wrapper, args)
-                        
-  #                  Power_absorbed = sum(Power_pool)
+            # protect the entry point
+            if __name__ == '__main__':
+                # create as many workers as possible (# of cores on the CPU)
+                with Pool(processes=multiprocessing.cpu_count()) as pool:
 
+                    Dn_pool, Power_pool = zip(*pool.map(Compute_Dn_and_Pabs_wrapper, args))
+
+                    # We sum the Power_pool
+                    Power_absorbed = sum(Power_pool)
+                    #We write the result of Dn_pool at the right place
+                    Dn_loc = np.zeros((2*Nv,Nv))
+                    for i in range (len(Dn_pool)):
+                        ivpar = args[i][0]
+                        ivperp = args[i][1]
+                        Dn_loc[ivpar,ivperp] = Dn_pool[i]
 
             # Normalisation of the resonant diffusion coefficient
             Dn[iR, :, :] = Dn_loc / (Omega_ce_loc * Te_loc / mass) 
@@ -422,6 +429,7 @@ for iR in range(Nr-2,-1,-1):
             # Normalisation of the Power absorbed
             Power_absorbed *= Ne_loc * mass * dVpar * dVperp * dR * R_loc * np.sqrt(2) * np.pi * W0
             print(Power_absorbed)
+
     # Fill the power vector
     vec_Power[iR] = vec_Power[iR+1] - Power_absorbed
     vec_Albajar[iR] = Power_in * np.exp(-tau_loc)
