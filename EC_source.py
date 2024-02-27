@@ -8,11 +8,8 @@ import numpy as np
 import math
 from scipy.special import jn
 from scipy.special import spherical_jn
-import sys
-np.set_printoptions(threshold=sys.maxsize)
 import multiprocessing
 from multiprocessing import Pool
-import itertools
 
 # Physical constants
 charge = 1.602 * 10**(-19)   # elementary charge [C]
@@ -396,12 +393,11 @@ for iR in range(Nr-2,-1,-1):
                         (light_speed * Omega_ce_loc * harmonic0)
             tau_loc += alpha_loc * abs(np.sin(theta0_loc)) * dR
 
-            # Vectorized version of the code
+#            # Vectorized version of the code
 #            [Dn_loc, Power] = Compute_Dn_and_Pabs_vec(Vpar,Vperp,vT_on_c_loc,omega_b,Omega_ce_loc,P_loc,theta0_loc,N0_loc,sigma_loc)            
 #            Power_absorbed = np.sum(Power)
 
             # Parallelized version of the code
-            Power_absorbed = 0.0
             args =[]
             for ivpar in range(len(Vpar)):
                 for ivperp in range(len(Vperp)):
@@ -422,6 +418,7 @@ for iR in range(Nr-2,-1,-1):
                         ivpar = args[i][0]
                         ivperp = args[i][1]
                         Dn_loc[ivpar,ivperp] = Dn_pool[i]
+
 
             # Normalisation of the resonant diffusion coefficient
             Dn[iR, :, :] = Dn_loc / (Omega_ce_loc * Te_loc / mass) 
