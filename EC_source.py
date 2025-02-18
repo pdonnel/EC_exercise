@@ -253,24 +253,24 @@ def Compute_Dn_and_Pabs_wrapper(args):
     
     ivpar = args[0]
     ivperp = args[1]
-    iR = args[2]
-    vT_on_c = args[3]
-    omega_b = args[4]
-    Omega_ce = args[5]
-    P_loc = args[6]
-    theta0_loc = args[7]
-    N0_loc = args[8]
-    sigma = args[9]
-    E2_loc = args[10]
-    
-    [Dn, Power_loc] = Compute_Dn_and_Pabs(ivpar,ivperp,iR,vT_on_c,omega_b,Omega_ce,P_loc,theta0_loc,N0_loc,sigma,E2_loc)
+    vT_on_c = args[2]
+    omega_b = args[3]
+    Omega_ce = args[4]
+    P_loc = args[5]
+    theta0_loc = args[6]
+    N0_loc = args[7]
+    sigma = args[8]
+    E2_loc = args[9]
+
+    vpar = Vpar[ivpar]
+    vperp = Vperp[ivperp]
+
+    [Dn, Power_loc] = Compute_Dn_and_Pabs(vpar,vperp,iR,vT_on_c,omega_b,Omega_ce,P_loc,theta0_loc,N0_loc,sigma,E2_loc)
 
     return Dn, Power_loc
 
-def Compute_Dn_and_Pabs(ivpar,ivperp,iR,vT_on_c,omega_b,Omega_ce,P_loc,theta0_loc,N0_loc,sigma,E2_loc):
+def Compute_Dn_and_Pabs(vpar,vperp,iR,vT_on_c,omega_b,Omega_ce,P_loc,theta0_loc,N0_loc,sigma,E2_loc):
 
-   vpar = Vpar[ivpar]
-   vperp = Vperp[ivperp]
    energy = vperp**2 + vpar**2
    lorentz = 1 / np.sqrt(1 - energy * vT_on_c**2)
    lambda_phys = (1 - harmonic * Omega_ce/omega_b / lorentz) / \
@@ -288,8 +288,6 @@ def Compute_Dn_and_Pabs(ivpar,ivperp,iR,vT_on_c,omega_b,Omega_ce,P_loc,theta0_lo
 
    
    return Dn_loc, Power
-
-
 
 
 def Compute_Dn_and_Pabs_vec(vpar,vperp,vT_on_c,omega_b,Omega_ce,P_loc,theta0_loc,N0_loc,sigma):
@@ -401,7 +399,7 @@ for iR in range(Nr-2,-1,-1):
             args =[]
             for ivpar in range(len(Vpar)):
                 for ivperp in range(len(Vperp)):
-                    args.append((ivpar,ivperp,iR,vT_on_c_loc,omega_b,Omega_ce_loc,P_loc,theta0_loc,N0_loc,sigma_loc,E2_loc))
+                    args.append((ivpar,ivperp,vT_on_c_loc,omega_b,Omega_ce_loc,P_loc,theta0_loc,N0_loc,sigma_loc,E2_loc))
                     
             # protect the entry point
             if __name__ == '__main__':
@@ -412,7 +410,7 @@ for iR in range(Nr-2,-1,-1):
 
                     # We sum the Power_pool
                     Power_absorbed = sum(Power_pool)
-                    #We write the result of Dn_pool at the right place
+                    # We write the result of Dn_pool at the right place
                     Dn_loc = np.zeros((2*Nv,Nv))
                     for i in range (len(Dn_pool)):
                         ivpar = args[i][0]
