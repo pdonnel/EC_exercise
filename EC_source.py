@@ -368,7 +368,6 @@ for iR in range(Nr-2,-1,-1):
         theta0_loc = compute_theta_res(arg_theta0,P_loc, Omega_ce_loc/omega_b)
         N0_loc = compute_N(theta0_loc, P_loc, Omega_ce_loc, omega_b)
         sigma_loc = light_speed / (omega_b * N0_loc * W0)
-        Nlim_loc = compute_N(0., P_loc, Omega_ce_loc, omega_b)
         Power_loc = vec_Power[iR+1]
         E2_loc = compute_E2(Power_loc, R_loc, theta0_loc, N0_loc, omega_p_loc, \
                             Omega_ce_loc, omega_b)
