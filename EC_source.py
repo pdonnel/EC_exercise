@@ -326,6 +326,9 @@ R_in = vec_R[Nr-1]
 B_in = B0 * R0 / R_in
 Omega_ce_in = charge * B_in / mass
 omega_p_in = np.sqrt(Ne_in * charge**2 / (epsilon0 * mass))
+print("omega_p_in =", omega_p_in)
+print("omega_b =", omega_b)
+print("wp/wb = ", omega_p_in/omega_b)
 P_in = 1 - (omega_p_in/omega_b)**2
 N_in = compute_N(theta_in, P_in, Omega_ce_in, omega_p_in)
 
