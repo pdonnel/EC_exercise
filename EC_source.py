@@ -9,6 +9,7 @@ import math
 from scipy.special import jn
 from scipy.special import spherical_jn
 import multiprocessing as mp
+import argparse
 
 # Physical constants
 charge = 1.602e-19       # elementary charge [C]
@@ -339,6 +340,11 @@ def Compute_Dn_and_Pabs_vec(vpar, vperp, vT_on_c, omega_b, Omega_ce, P_loc, thet
     return Dn, Power
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--parallel", action='store_true',
+                    help="Use parallelisation", default=False)
+args = parser.parse_args()
+
 # Compute quantities at the entry in the plasma (=outer midplane)
 Ne_in = vec_Ne[Nr-1]
 Te_in = vec_Te[Nr-1]
@@ -412,34 +418,35 @@ for iR in range(Nr-2, -1, -1):
                 (light_speed * Omega_ce_loc * harmonic0)
             tau_loc += alpha_loc * abs(np.sin(theta0_loc)) * dR
 
-            # Vectorized version of the code
-            [Dn_loc, Power] = Compute_Dn_and_Pabs_vec(
-                Vpar, Vperp, vT_on_c_loc, omega_b, Omega_ce_loc, P_loc, theta0_loc, N0_loc, sigma_loc)
-            Power_absorbed = np.sum(Power)
+            if args.parallel:
+                # Parallelized version of the code
+                args = []
+                for ivpar in range(len(Vpar)):
+                    for ivperp in range(len(Vperp)):
+                        args.append((ivpar, ivperp, vT_on_c_loc, omega_b, Omega_ce_loc,
+                                    P_loc, theta0_loc, N0_loc, sigma_loc, E2_loc))
 
-            # Parallelized version of the code
-            # args = []
-            # for ivpar in range(len(Vpar)):
-            #     for ivperp in range(len(Vperp)):
-            #         args.append((ivpar, ivperp, vT_on_c_loc, omega_b, Omega_ce_loc,
-            #                     P_loc, theta0_loc, N0_loc, sigma_loc, E2_loc))
+                # protect the entry point
+                if __name__ == '__main__':
+                    # create as many workers as possible (# of cores on the CPU)
+                    with mp.Pool(processes=mp.cpu_count()) as pool:
 
-            # # protect the entry point
-            # if __name__ == '__main__':
-            #     # create as many workers as possible (# of cores on the CPU)
-            #     with mp.Pool(processes=mp.cpu_count()) as pool:
-            #
-            #         Dn_pool, Power_pool = zip(
-            #             *pool.map(Compute_Dn_and_Pabs_wrapper, args))
-            #
-            #         # We sum the Power_pool
-            #         Power_absorbed = sum(Power_pool)
-            #         # We write the result of Dn_pool at the right place
-            #         Dn_loc = np.zeros((2*Nv, Nv))
-            #         for i in range(len(Dn_pool)):
-            #             ivpar = args[i][0]
-            #             ivperp = args[i][1]
-            #             Dn_loc[ivpar, ivperp] = Dn_pool[i]
+                        Dn_pool, Power_pool = zip(
+                            *pool.map(Compute_Dn_and_Pabs_wrapper, args))
+
+                        # We sum the Power_pool
+                        Power_absorbed = sum(Power_pool)
+                        # We write the result of Dn_pool at the right place
+                        Dn_loc = np.zeros((2*Nv, Nv))
+                        for i in range(len(Dn_pool)):
+                            ivpar = args[i][0]
+                            ivperp = args[i][1]
+                            Dn_loc[ivpar, ivperp] = Dn_pool[i]
+            else:
+                # Vectorized version of the code
+                [Dn_loc, Power] = Compute_Dn_and_Pabs_vec(
+                    Vpar, Vperp, vT_on_c_loc, omega_b, Omega_ce_loc, P_loc, theta0_loc, N0_loc, sigma_loc)
+                Power_absorbed = np.sum(Power)
 
             # Normalisation of the resonant diffusion coefficient
             Dn[iR, :, :] = Dn_loc / (Omega_ce_loc * Te_loc / mass)
