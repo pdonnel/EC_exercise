@@ -1,24 +1,13 @@
-- How to copy the repository on your machine using GIT?
+## How to clone this repository on your machine?
 
-  - Step 1: Copy the ssh public key of the machine on which you want to clone the repository
-  To do so, type on the computer you want to use :
-  cd ~/
-  cat .ssh/id_rsa.pub
-  This generates a ssh public key (= a few lines of alpha numerical characters)
+- Open a terminal and navigate to the folder in which you want to copy this repository using `cd`
+- Type `git clone https://github.com/pdonnel/EC_exercise.git`
 
-  If you get the error message « cat: .ssh/id_rsa.pub: No such file or directory », it means you do not already have a public ssh key and you need to generate it with the command:
-  ssh-keygen -t rsa
+## How to use the code
 
-  Then restart the procedure
-
-  - Step 2: Copy the public key on Github
-  To do so, connect to Github. 
-  Then go on your profile (top-right corner).
-  Click on "Settings"
-  Click on "SSH and GPG keys"
-  Click on "New SSH key"
-  Enter a title and copy your public key
-
-
-  - Step 3: Do a copy via GIT
-  Type "git clone git@github.com:pdonnel/EC_exercise.git " on the machine
+You have two python files in the code.  
+`EC_source.py` is used to generate data for the absorption of a EC beam in a plasma.
+It then stores the data in `.npy` format files.
+By default the code runs in a vectorized way. If you want to
+force the parallelization to occur you can use the `--parallel` flag.  
+`EC_plots.py` uses the data files saved by `EC_source.py` to produces plots.
